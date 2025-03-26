@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drawing 4 Bozos </title>
+    <style>
+        body {
+            display: flex;
+            margin: 0;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            background: #ffffff;
+            color: #000000;
+            transition: background 0.3s, color 0.3s;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+        .dark-mode {
+            background: #121212;
+            color: #ffffff;
+        }
+        .sidebar {
+            width: 220px;
+            padding: 15px;
+            background: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: background 0.3s;
+            position: relative;
+            z-index: 2;
+        }
+        .dark-mode .sidebar {
+            background: #333;
+        }
+        .tab-buttons button {
+            margin-bottom: 10px;
+        }
+        .canvas-container {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+            cursor: grab;
+            overflow: hidden;
+        }
+        canvas {
+            border: 1px solid black;
+            background: white;
+            cursor: crosshair;
+            touch-action: none;
+            transform-origin: center;
+            position: absolute;
+        }
+        .dark-mode canvas { border-color: white; }
+        .bottom-buttons {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            justify-content: center;
+            align-items: center;
+            background: #f0f0f0;
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            z-index: 3;
+        }
+        .dark-mode .bottom-buttons {
+            background: #333;
+        }
+        .zoom-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .tab {
+            display: none;
+        }
+        .tab.active {
+            display: block;
+        }
+        .tools-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .file-input {
+            margin-top: 10px;
+        }
+        button {
+            padding: 10px;
+            cursor: pointer;
+            border: none;
+            background-color: #4CAF50;  /* Default color for light mode */
+            color: white;
+            font-size: 14px;
+            margin: 5px 0;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .dark-mode button {
+            background-color: #444;
+            color: #fff;
+        }
+        .dark-mode button:hover {
+            background-color: #666;
+        }
+        /* Light Mode Button Colors - Blue */
+        body:not(.dark-mode) button {
+            background-color: #007bff; /* Blue color in light mode */
+        }
+        body:not(.dark-mode) button:hover {
+            background-color: #0056b3; /* Darker blue on hover */
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h3>Drawing 4 Bozos</h3>
+        <div class="tab-buttons">
+            <button onclick="openTab('newDrawingTab')">New Drawing</button>
+            <button onclick="openTab('toolsTab')">Drawing Tools</button>
+        </div>
+        <div class="tab active" id="newDrawingTab">
+            <label for="canvasWidth">Canvas Width:</label>
+            <input type="number" id="canvasWidth" value="500" min="100" max="2000">
+            <label for="canvasHeight">Canvas Height:</label>
+            <input type="number" id="canvasHeight" value="500" min="100" max="2000">
+            <button onclick="newDrawing()">New Drawing</button>
+        </div>
+        <div class="tab" id="toolsTab">
+            <div class="tools-container">
+                <input type="color" id="colorPicker" value="#000000" onchange="updateColor()">
+                <input type="range" id="sizePicker" min="1" max="90" value="2" onchange="updateSize()">
+                <button onclick="setTool('pen')">Pen</button>
+                <button onclick="setTool('eraser')">Eraser</button>
+                <button onclick="fillCanvas()">Fill Canvas</button>
+                <div class="file-input">
+                    <button onclick="document.getElementById('imageInput').click()">Import Image</button>
+                    <input type="file" id="imageInput" accept="image/*" onchange="loadImage(event)" style="display:none">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="canvas-container" id="canvasContainer">
+        <canvas id="drawingCanvas" width="500" height="500"></canvas>
+    </div>
+    <div class="bottom-buttons">
+        <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
+        <button onclick="saveImage()">Save Image</button>
+        <div class="zoom-container">
+            <label for="zoomSlider">Zoom:</label>
+            <input type="range" id="zoomSlider" min="50" max="300" value="100" oninput="updateZoom()">
+            <span id="zoomPercentage">100%</span>
+        </div>
+    </div>
+    <script>
+        let brushColor = '#000000';
+        let brushSize = 2;
+        let tool = 'pen';
+        let isDrawing = false;
+        let scale = 1;
+        let offsetX = 0, offsetY = 0;
+        const canvas = document.getElementById("drawingCanvas");
+        const ctx = canvas.getContext("2d");
+
+        function openTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        function newDrawing() {
+            const canvasWidth = document.getElementById("canvasWidth").value;
+            const canvasHeight = document.getElementById("canvasHeight").value;
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function setTool(selectedTool) {
+            tool = selectedTool;
+        }
+
+        function fillCanvas() {
+            ctx.fillStyle = brushColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function updateColor() {
+            brushColor = document.getElementById("colorPicker").value;
+        }
+
+        function updateSize() {
+            brushSize = document.getElementById("sizePicker").value;
+        }
+
+        function updateZoom() {
+            scale = document.getElementById("zoomSlider").value / 100;
+            canvas.style.transform = `scale(${scale})`;
+            document.getElementById("zoomPercentage").innerText = `${Math.round(scale * 100)}%`;
+        }
+
+        // Helper function to get the mouse/touch position relative to the canvas, adjusted for zoom
+        function getPosition(e) {
+            let rect = canvas.getBoundingClientRect();
+            let x, y;
+
+            if (e.touches) {
+                // Handle touch events
+                x = (e.touches[0].clientX - rect.left) / scale;
+                y = (e.touches[0].clientY - rect.top) / scale;
+            } else {
+                // Handle mouse events
+                x = (e.clientX - rect.left) / scale;
+                y = (e.clientY - rect.top) / scale;
+            }
+
+            return { x, y };
+        }
+
+        // Mouse events
+        canvas.addEventListener('mousedown', (e) => {
+            if (tool === 'pen' || tool === 'eraser') {
+                isDrawing = true;
+                const position = getPosition(e);
+                // Adjust starting point to center the pen at the cursor
+                ctx.beginPath();
+                ctx.moveTo(position.x, position.y);
+                ctx.lineCap = "round";
+                ctx.lineJoin = "round";
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDrawing) {
+                const position = getPosition(e);
+                // Adjust the pen's position to stay centered on the cursor
+                ctx.strokeStyle = tool === 'pen' ? brushColor : '#ffffff';
+                ctx.lineWidth = brushSize;
+                ctx.lineTo(position.x, position.y);
+                ctx.stroke();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('mouseout', () => isDrawing = false);
+
+        // Touch events
+        canvas.addEventListener('touchstart', (e) => {
+            if (tool === 'pen' || tool === 'eraser') {
+                isDrawing = true;
+                const position = getPosition(e);
+                // Adjust starting point to center the pen at the cursor
+                ctx.beginPath();
+                ctx.moveTo(position.x, position.y);
+                ctx.lineCap = "round";
+                ctx.lineJoin = "round";
+                e.preventDefault();  // Prevents scrolling on touch devices
+            }
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (isDrawing) {
+                const position = getPosition(e);
+                // Adjust the pen's position to stay centered on the cursor
+                ctx.strokeStyle = tool === 'pen' ? brushColor : '#ffffff';
+                ctx.lineWidth = brushSize;
+                ctx.lineTo(position.x, position.y);
+                ctx.stroke();
+                e.preventDefault();  // Prevents scrolling on touch devices
+            }
+        });
+
+        canvas.addEventListener('touchend', () => isDrawing = false);
+
+        // Toggle Dark Mode
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+        }
+
+        // Save Image
+        function saveImage() {
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL('image/png');
+            link.download = 'drawing.png';
+            link.click();
+        }
+
+        // Load Image and adjust canvas size
+        function loadImage(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // Resize canvas if image is larger
+                    if (img.width > canvas.width || img.height > canvas.height) {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                    }
+                    // Draw the image on the canvas
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);  // Clear the canvas first
+                    ctx.drawImage(img, 0, 0);
+                };
+                img.src = e.target.result;
+            };
+            
+            reader.readAsDataURL(file);
+        }// Add a text input field dynamically
+const sidebar = document.querySelector('.tools-container');
+const textInput = document.createElement('input');
+textInput.type = 'text';
+textInput.id = 'textInput';
+textInput.placeholder = 'Enter text...';
+sidebar.appendChild(textInput);
+
+// Add a font size selector
+const fontSizeInput = document.createElement('input');
+fontSizeInput.type = 'number';
+fontSizeInput.id = 'fontSizeInput';
+fontSizeInput.value = 20;
+fontSizeInput.min = 5;
+fontSizeInput.max = 100;
+sidebar.appendChild(fontSizeInput);
+
+// Add a button to activate the text tool
+const textToolButton = document.createElement('button');
+textToolButton.innerText = 'Text Tool';
+textToolButton.onclick = () => setTool('text');
+sidebar.appendChild(textToolButton);
+
+canvas.addEventListener('click', (e) => {
+    if (tool === 'text') {
+        const position = getPosition(e);
+        const text = textInput.value;
+        const fontSize = fontSizeInput.value || 20;
+        
+        if (text) {
+            ctx.font = `${fontSize}px Comic Sans MS`;
+            ctx.fillStyle = brushColor;
+            ctx.fillText(text, position.x, position.y);
+        }
+    }
+});
+
+        
+    </script>
+</body>
+</html>
